@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: restaurant_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-restaurant_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - restaurant_network
+
+  backend:
+    build: ./restaurant-backend
+    container_name: restaurant_backend
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-restaurant_db}
+    env_file:
+      - ./restaurant-backend/.env
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./restaurant-backend:/app
+      - /app/__pycache__
+    networks:
+      - restaurant_network
+
+  frontend:
+    build: ./smart-restaurant
+    container_name: restaurant_frontend
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - restaurant_network
+
+volumes:
+  postgres_data:
+
+networks:
+  restaurant_network:
+    driver: bridge
