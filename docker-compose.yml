@@ -1,10 +1,7 @@
-version: '3.8'
-
 services:
   db:
-    image: postgres:15-alpine
-    container_name: restaurant_db
-    restart: always
+    image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
@@ -18,42 +15,45 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - restaurant_network
 
   backend:
-    build: ./restaurant-backend
-    container_name: restaurant_backend
-    restart: always
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-restaurant_db}
+      SECRET_KEY: 28dc5a50724e1c19f07086c22f3999cf0b5cd083be654ce09359d6fa64ddf84c
+      DEBUG: "false"
+      ENVIRONMENT: production
+      CORS_ORIGINS: '["http://localhost", "http://localhost:80"]'
+      PORT: "8000"
     ports:
       - "8000:8000"
-    environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-restaurant_db}
-    env_file:
-      - ./restaurant-backend/.env
+    volumes:
+      - uploads_data:/app/uploads
     depends_on:
       db:
         condition: service_healthy
-    volumes:
-      - ./restaurant-backend:/app
-      - /app/__pycache__
-    networks:
-      - restaurant_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   frontend:
-    build: ./smart-restaurant
-    container_name: restaurant_frontend
-    restart: always
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_URL: http://localhost:8000
+    restart: unless-stopped
     ports:
-      - "3000:80"
+      - "80:80"
     depends_on:
-      - backend
-    networks:
-      - restaurant_network
+      backend:
+        condition: service_healthy
 
 volumes:
   postgres_data:
-
-networks:
-  restaurant_network:
-    driver: bridge
+  uploads_data:

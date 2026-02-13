@@ -1,0 +1,2585 @@
+===== FILE: frontend/src/pages/Reviews.tsx =====
+/* eslint-disable jsx-a11y/img-redundant-alt */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { StarIcon } from '@heroicons/react/24/solid';
+import { StarIcon as StarOutlineIcon, XMarkIcon, HandThumbUpIcon, CheckBadgeIcon, CameraIcon, FunnelIcon } from '@heroicons/react/24/outline';
+
+interface Review {
+  id: number;
+  customerName: string;
+  rating: number;
+  title: string;
+  comment: string;
+  date: string;
+  likes: number;
+  helpfulVotes: number;
+  isVerified: boolean;
+  photos?: string[];
+  businessResponse?: { text: string; date: string; };
+}
+
+// Toast component
+const Toast: React.FC<{ message: string; type: 'success' | 'error'; onClose: () => void }> = ({ message, type, onClose }) => {
+  useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -20, x: '-50%' }}
+      animate={{ opacity: 1, y: 0, x: '-50%' }}
+      exit={{ opacity: 0, y: -20, x: '-50%' }}
+      className={`fixed top-24 left-1/2 z-[60] px-5 py-3 rounded-xl shadow-lg text-sm font-medium flex items-center gap-2 ${
+        type === 'success' ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
+      }`}
+    >
+      {type === 'success' ? '✓' : '⚠️'} {message}
+    </motion.div>
+  );
+};
+
+const Reviews: React.FC = () => {
+  const [reviews, setReviews] = useState<Review[]>([
+    {
+      id: 1, customerName: "Ahmed Khan", rating: 5,
+      title: "Exceptional Dining Experience",
+      comment: "Amazing food and service! The staff was very friendly and the atmosphere was great. The biryani was cooked to perfection and the kebab selection was outstanding.",
+      date: "2024-03-15", likes: 12, helpfulVotes: 8, isVerified: true,
+      photos: ["https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=300&q=80", "https://images.unsplash.com/photo-1567188040759-fb8a883dc6d8?w=300&q=80"],
+      businessResponse: { text: "Thank you for your wonderful review! We're thrilled you enjoyed your experience with us.", date: "2024-03-16" }
+    },
+    {
+      id: 2, customerName: "Fatima Zaidi", rating: 4,
+      title: "Great Food, Cozy Atmosphere",
+      comment: "Great experience overall. The food was delicious and the service was prompt. The karahi dishes are particularly noteworthy. Will come again.",
+      date: "2024-03-14", likes: 8, helpfulVotes: 5, isVerified: true,
+      photos: ["https://images.unsplash.com/photo-1610057099443-fde6c99db9e1?w=300&q=80"]
+    },
+    {
+      id: 3, customerName: "Usman Malik", rating: 5,
+      title: "Best Pakistani Restaurant",
+      comment: "Best restaurant for authentic Pakistani food! The menu has great variety and everything tastes amazing. The QR ordering system is a great modern touch.",
+      date: "2024-03-13", likes: 15, helpfulVotes: 12, isVerified: true,
+      photos: ["https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=300&q=80", "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=300&q=80"]
+    },
+    {
+      id: 4, customerName: "Sara Ali", rating: 3,
+      title: "Good but Room for Improvement",
+      comment: "Food quality is excellent but the wait time was a bit long during peak hours. Would appreciate faster service. The naan was fresh and the daal was very flavorful.",
+      date: "2024-03-10", likes: 3, helpfulVotes: 4, isVerified: false
+    },
+  ]);
+
+  const [sortBy, setSortBy] = useState<'recent' | 'rating' | 'likes' | 'helpful'>('recent');
+  const [filterRating, setFilterRating] = useState<number | null>(null);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const [newReview, setNewReview] = useState({ rating: 0, title: '', comment: '', photos: [] as string[] });
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
+
+  const handleLike = (reviewId: number) => {
+    setReviews(reviews.map(r => r.id === reviewId ? { ...r, likes: r.likes + 1 } : r));
+  };
+
+  const handleHelpful = (reviewId: number) => {
+    setReviews(reviews.map(r => r.id === reviewId ? { ...r, helpfulVotes: r.helpfulVotes + 1 } : r));
+    showToast('Marked as helpful!');
+  };
+
+  const handleSubmitReview = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newReview.rating === 0) { showToast('Please select a rating', 'error'); return; }
+    if (!newReview.title.trim()) { showToast('Please enter a title', 'error'); return; }
+    if (!newReview.comment.trim()) { showToast('Please enter a comment', 'error'); return; }
+
+    const review: Review = {
+      id: reviews.length + 1, customerName: "You", rating: newReview.rating,
+      title: newReview.title, comment: newReview.comment,
+      date: new Date().toISOString().split('T')[0], likes: 0, helpfulVotes: 0, isVerified: true, photos: newReview.photos
+    };
+    setReviews([review, ...reviews]);
+    setShowReviewForm(false);
+    setNewReview({ rating: 0, title: '', comment: '', photos: [] });
+    showToast('Review submitted successfully!');
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      const newPhotos = Array.from(files).map(file => URL.createObjectURL(file));
+      setNewReview(prev => ({ ...prev, photos: [...prev.photos, ...newPhotos] }));
+    }
+  };
+
+  const removePhoto = (index: number) => {
+    setNewReview(prev => ({ ...prev, photos: prev.photos.filter((_, i) => i !== index) }));
+  };
+
+  const sortedAndFilteredReviews = reviews
+    .filter(r => filterRating === null || r.rating === filterRating)
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'recent': return new Date(b.date).getTime() - new Date(a.date).getTime();
+        case 'rating': return b.rating - a.rating;
+        case 'likes': return b.likes - a.likes;
+        case 'helpful': return b.helpfulVotes - a.helpfulVotes;
+        default: return 0;
+      }
+    });
+
+  // Rating summary
+  const totalReviews = reviews.length;
+  const avgRating = totalReviews > 0 ? (reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(1) : '0';
+  const ratingCounts = [5, 4, 3, 2, 1].map(r => ({ rating: r, count: reviews.filter(rev => rev.rating === r).length }));
+
+  return (
+    <div className="min-h-screen bg-[#f8f9fc] pt-20 pb-12">
+      {/* Toast */}
+      <AnimatePresence>{toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}</AnimatePresence>
+
+      {/* Hero */}
+      <div className="bg-gradient-to-r from-[#1a2233] to-[#2d3748] py-16 mb-12">
+        <div className="max-w-7xl mx-auto px-4 text-center">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+            <h1 className="text-4xl font-bold text-white mb-3">Customer Reviews</h1>
+            <p className="text-gray-400 text-lg max-w-xl mx-auto">See what our guests are saying about their dining experience</p>
+          </motion.div>
+        </div>
+      </div>
+
+      <div className="max-w-5xl mx-auto px-4">
+        {/* Rating Summary */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-8 -mt-24 mb-8"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Score */}
+            <div className="text-center md:border-r border-gray-100">
+              <p className="text-5xl font-bold text-[#1a2233]">{avgRating}</p>
+              <div className="flex items-center justify-center gap-1 my-2">
+                {[1, 2, 3, 4, 5].map(s => (
+                  <StarIcon key={s} className={`h-5 w-5 ${s <= Math.round(Number(avgRating)) ? 'text-[#FFD700]' : 'text-gray-200'}`} />
+                ))}
+              </div>
+              <p className="text-sm text-gray-500">{totalReviews} reviews</p>
+            </div>
+
+            {/* Rating Bars */}
+            <div className="md:col-span-2 space-y-2.5">
+              {ratingCounts.map(({ rating, count }) => (
+                <div key={rating} className="flex items-center gap-3">
+                  <span className="text-sm font-medium text-gray-600 w-6">{rating}</span>
+                  <StarIcon className="h-4 w-4 text-[#FFD700]" />
+                  <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-[#FFD700] rounded-full transition-all duration-500"
+                      style={{ width: totalReviews > 0 ? `${(count / totalReviews) * 100}%` : '0%' }}
+                    />
+                  </div>
+                  <span className="text-xs text-gray-400 w-8 text-right">{count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Controls: Sort + Filter + Write Review */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-2 flex-wrap">
+            <FunnelIcon className="h-4 w-4 text-gray-400" />
+            {(['recent', 'rating', 'helpful'] as const).map(s => (
+              <button key={s} onClick={() => setSortBy(s)}
+                className={`px-3.5 py-2 rounded-xl text-sm font-medium transition-all ${
+                  sortBy === s ? 'bg-[#1a2233] text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                }`}>
+                {s === 'recent' ? 'Most Recent' : s === 'rating' ? 'Highest Rated' : 'Most Helpful'}
+              </button>
+            ))}
+            <span className="text-gray-200 mx-1">|</span>
+            {[5, 4, 3, 2, 1].map(r => (
+              <button key={r} onClick={() => setFilterRating(filterRating === r ? null : r)}
+                className={`px-2.5 py-2 rounded-xl text-sm font-medium transition-all ${
+                  filterRating === r ? 'bg-[#FFD700] text-[#1a2233]' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                }`}>
+                {r}★
+              </button>
+            ))}
+          </div>
+          <button onClick={() => setShowReviewForm(true)}
+            className="px-5 py-2.5 bg-[#FFD700] text-[#1a2233] rounded-xl font-semibold text-sm hover:bg-[#e6c200] transition-all shadow-sm flex items-center gap-2">
+            <StarOutlineIcon className="h-4 w-4" /> Write a Review
+          </button>
+        </div>
+
+        {/* Reviews List */}
+        <div className="space-y-4">
+          {sortedAndFilteredReviews.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
+              <p className="text-4xl mb-3">📝</p>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">No reviews found</h3>
+              <p className="text-gray-500 text-sm">Try adjusting your filters or be the first to leave a review!</p>
+            </div>
+          ) : (
+            sortedAndFilteredReviews.map((review, idx) => (
+              <motion.div
+                key={review.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.05 }}
+                className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-all"
+              >
+                {/* Header */}
+                <div className="flex items-start justify-between gap-4 mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#FFD700] to-[#e6c200] flex items-center justify-center text-[#1a2233] font-bold text-sm">
+                      {review.customerName[0].toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-semibold text-[#1a2233]">{review.customerName}</h4>
+                        {review.isVerified && <CheckBadgeIcon className="h-4 w-4 text-blue-500" />}
+                      </div>
+                      <p className="text-xs text-gray-400">{new Date(review.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map(s => (
+                      <StarIcon key={s} className={`h-4 w-4 ${s <= review.rating ? 'text-[#FFD700]' : 'text-gray-200'}`} />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Content */}
+                <h3 className="font-semibold text-[#1a2233] mb-2">{review.title}</h3>
+                <p className="text-sm text-gray-600 leading-relaxed mb-4">{review.comment}</p>
+
+                {/* Photos */}
+                {review.photos && review.photos.length > 0 && (
+                  <div className="flex gap-2 mb-4 overflow-x-auto">
+                    {review.photos.map((photo, i) => (
+                      <button key={i} onClick={() => setLightboxImage(photo)} className="flex-shrink-0">
+                        <img src={photo} alt={`Review photo ${i + 1}`} className="w-20 h-20 object-cover rounded-xl border border-gray-100 hover:border-[#FFD700] transition-colors" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Business Response */}
+                {review.businessResponse && (
+                  <div className="bg-[#f8f9fc] rounded-xl p-4 mb-4 border-l-3 border-l-[#FFD700]" style={{ borderLeft: '3px solid #FFD700' }}>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-xs font-semibold text-[#FFD700]">🍽️ Restaurant Response</span>
+                      <span className="text-xs text-gray-400">{new Date(review.businessResponse.date).toLocaleDateString()}</span>
+                    </div>
+                    <p className="text-sm text-gray-600">{review.businessResponse.text}</p>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex items-center gap-4 pt-3 border-t border-gray-100">
+                  <button onClick={() => handleLike(review.id)} className="flex items-center gap-1.5 text-gray-400 hover:text-[#FFD700] transition-colors text-sm">
+                    👍 <span>{review.likes}</span>
+                  </button>
+                  <button onClick={() => handleHelpful(review.id)} className="flex items-center gap-1.5 text-gray-400 hover:text-[#1a2233] transition-colors text-sm">
+                    <HandThumbUpIcon className="h-4 w-4" /> Helpful ({review.helpfulVotes})
+                  </button>
+                </div>
+              </motion.div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Write Review Modal */}
+      <AnimatePresence>
+        {showReviewForm && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+            onClick={() => setShowReviewForm(false)}>
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl p-6 sm:p-8 max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+              onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-[#1a2233]">Write a Review</h2>
+                <button onClick={() => setShowReviewForm(false)} className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors">
+                  <XMarkIcon className="h-5 w-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmitReview} className="space-y-5">
+                {/* Star Picker */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Your Rating</label>
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <button key={star} type="button" onClick={() => setNewReview(prev => ({ ...prev, rating: star }))}
+                        className="focus:outline-none transition-transform hover:scale-110">
+                        {star <= newReview.rating ? (
+                          <StarIcon className="h-9 w-9 text-[#FFD700]" />
+                        ) : (
+                          <StarOutlineIcon className="h-9 w-9 text-gray-300 hover:text-[#FFD700]/50" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Title */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Title</label>
+                  <input type="text" value={newReview.title}
+                    onChange={e => setNewReview(prev => ({ ...prev, title: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FFD700]/30 focus:border-[#FFD700] outline-none transition-all text-sm"
+                    placeholder="Summarize your experience" />
+                </div>
+
+                {/* Comment */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Your Review</label>
+                  <textarea value={newReview.comment}
+                    onChange={e => setNewReview(prev => ({ ...prev, comment: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FFD700]/30 focus:border-[#FFD700] outline-none transition-all text-sm resize-none h-28"
+                    placeholder="Share your experience with others" />
+                </div>
+
+                {/* Photo Upload */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Photos (Optional)</label>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {newReview.photos.map((photo, index) => (
+                      <div key={index} className="relative">
+                        <img src={photo} alt={`Upload ${index + 1}`} className="w-18 h-18 object-cover rounded-xl border border-gray-100" />
+                        <button type="button" onClick={() => removePhoto(index)}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600">
+                          <XMarkIcon className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <label className="inline-flex items-center gap-2 px-4 py-2.5 border border-dashed border-gray-300 rounded-xl text-sm text-gray-500 hover:border-[#FFD700] hover:text-[#FFD700] transition-colors cursor-pointer">
+                    <CameraIcon className="h-4 w-4" /> Add Photos
+                    <input type="file" accept="image/*" multiple onChange={handlePhotoUpload} className="hidden" />
+                  </label>
+                </div>
+
+                {/* Submit */}
+                <button type="submit"
+                  className="w-full py-3.5 bg-[#FFD700] text-[#1a2233] rounded-xl font-bold text-sm hover:bg-[#e6c200] transition-all shadow-lg shadow-[#FFD700]/20">
+                  Submit Review
+                </button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Photo Lightbox */}
+      <AnimatePresence>
+        {lightboxImage && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50"
+            onClick={() => setLightboxImage(null)}>
+            <button className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors">
+              <XMarkIcon className="h-6 w-6" />
+            </button>
+            <motion.img initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }}
+              src={lightboxImage} alt="Review photo"
+              className="max-w-full max-h-[85vh] rounded-2xl shadow-2xl object-contain"
+              onClick={(e: React.MouseEvent) => e.stopPropagation()} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+export default Reviews;
+
+
+===== FILE: frontend/src/components/Reviews.tsx =====
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { reviewAPI } from '../services/api';
+import type { Review } from '../services/api';
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 20 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.07, duration: 0.5 },
+  }),
+};
+
+const Reviews: React.FC = () => {
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchReviews();
+  }, []);
+
+  const fetchReviews = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await reviewAPI.getReviews();
+      if (response.success) {
+        setReviews(response.data);
+      } else {
+        setError('Failed to load reviews.');
+      }
+    } catch (err) {
+      console.error('Error fetching reviews:', err);
+      setError('Unable to connect. Please check your connection and try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  // Loading skeleton
+  if (loading) {
+    return (
+      <div className="bg-gradient-to-br from-[#1a2233] to-[#2d3748] py-20">
+      <div className="page-container">
+      <div className="text-center mb-12">
+      <div className="skeleton h-10 w-64 mx-auto mb-4 bg-white/10 rounded-lg" />
+      <div className="skeleton h-5 w-96 mx-auto bg-white/5 rounded-lg" />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {[...Array(6)].map((_, i) => (
+        <div key={i} className="bg-white/5 rounded-2xl p-6 border border-white/5">
+        <div className="flex items-center gap-3 mb-4">
+        <div className="skeleton w-12 h-12 rounded-full bg-white/10" />
+        <div>
+        <div className="skeleton h-4 w-24 mb-2 bg-white/10 rounded" />
+        <div className="skeleton h-3 w-20 bg-white/5 rounded" />
+        </div>
+        </div>
+        <div className="skeleton h-3 w-full mb-2 bg-white/5 rounded" />
+        <div className="skeleton h-3 w-3/4 bg-white/5 rounded" />
+        </div>
+      ))}
+      </div>
+      </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="bg-gradient-to-br from-[#1a2233] to-[#2d3748] py-20">
+      <div className="page-container text-center">
+      <div className="max-w-md mx-auto">
+      <div className="text-5xl mb-4">⚠️</div>
+      <h3 className="text-2xl font-bold text-white mb-2">Something went wrong</h3>
+      <p className="text-gray-400 mb-6">{error}</p>
+      <button
+      onClick={fetchReviews}
+      className="btn-primary"
+      >
+      Try Again
+      </button>
+      </div>
+      </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-gradient-to-br from-[#1a2233] to-[#2d3748] py-20">
+    <div className="page-container">
+    {/* Header */}
+    <motion.div
+    initial={{ opacity: 0, y: 16 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="text-center mb-14"
+    >
+    <span className="inline-block text-sm font-semibold text-[#FFD700] tracking-wider uppercase mb-3">
+    Testimonials
+    </span>
+    <h2 className="text-4xl font-bold text-white mb-3">What Our Guests Say</h2>
+    <p className="text-gray-400 max-w-lg mx-auto">
+    Real feedback from food lovers who've experienced the Dastarkhwan difference
+    </p>
+    </motion.div>
+
+    {/* Reviews Grid */}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {reviews.map((review, i) => (
+      <motion.div
+      key={review.id}
+      custom={i}
+      initial="hidden"
+      whileInView="visible"
+        viewport={{ once: true, margin: '-30px' }}
+        variants={fadeUp}
+        className="group bg-white rounded-2xl p-6 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 border border-gray-100"
+        >
+        {/* Stars */}
+        <div className="flex items-center gap-0.5 mb-4">
+        {[...Array(5)].map((_, idx) => (
+          <svg
+          key={idx}
+          className={`w-5 h-5 ${idx < review.rating ? 'text-[#FFD700]' : 'text-gray-200'}`}
+          fill="currentColor"
+          viewBox="0 0 20 20"
+          >
+          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+          </svg>
+        ))}
+        </div>
+
+        {/* Comment */}
+        <p className="text-gray-700 leading-relaxed mb-5 text-[15px]">
+        "{review.comment}"
+        </p>
+
+        {/* Author */}
+        <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#FFD700] to-[#e6c200] flex items-center justify-center text-[#1a2233] font-bold text-sm shadow-sm">
+        {review.userName.charAt(0).toUpperCase()}
+        </div>
+        <div>
+        <p className="text-sm font-semibold text-gray-800">{review.userName}</p>
+        <p className="text-xs text-gray-400">{formatDate(review.createdAt)}</p>
+        </div>
+        </div>
+        </motion.div>
+    ))}
+    </div>
+
+    {/* Empty State */}
+    {reviews.length === 0 && (
+      <div className="text-center py-16">
+      <div className="text-6xl mb-4">⭐</div>
+      <h3 className="text-2xl font-semibold text-white mb-2">No reviews yet</h3>
+      <p className="text-gray-400">Be the first to share your experience!</p>
+      </div>
+    )}
+
+    {/* CTA */}
+    <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true }}
+    className="text-center mt-16"
+    >
+    <div className="bg-white rounded-2xl p-10 shadow-xl border border-gray-100 max-w-xl mx-auto">
+    <h3 className="text-2xl font-bold text-[#1a2233] mb-2">Enjoyed your meal?</h3>
+    <p className="text-gray-500 mb-6">We'd love to hear about your dining experience</p>
+    <button className="btn-primary">
+    Write a Review
+    </button>
+    </div>
+    </motion.div>
+    </div>
+    </div>
+  );
+};
+
+export default Reviews;
+
+
+===== FILE: frontend/src/components/QRCodeGenerator.tsx =====
+import React from 'react';
+import { QRCodeSVG } from 'qrcode.react';
+
+interface QRCodeGeneratorProps {
+  tableId: string;
+  size?: number;
+  type?: 'menu' | 'payment';
+  amount?: number;
+}
+
+const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({ 
+  tableId, 
+  size = 200,
+  type = 'menu',
+  amount
+}) => {
+  const getQRValue = () => {
+    const baseUrl = window.location.origin;
+    if (type === 'payment' && amount) {
+      return `${baseUrl}/pay?table=${tableId}&amount=${amount}`;
+    }
+    return `${baseUrl}/menu?table=${tableId}`;
+  };
+
+  const getLabel = () => {
+    if (type === 'payment') {
+      return `Scan to pay for Table ${tableId}`;
+    }
+    return `Scan to view menu for Table ${tableId}`;
+  };
+
+  return (
+    <div className="flex flex-col items-center p-4">
+      <div className="bg-white p-4 rounded-lg shadow-lg">
+        <QRCodeSVG
+          value={getQRValue()}
+          size={size}
+          level="H"
+          includeMargin={true}
+        />
+      </div>
+      <p className="mt-4 text-sm text-gray-600">{getLabel()}</p>
+    </div>
+  );
+};
+
+export default QRCodeGenerator; 
+
+===== FILE: frontend/src/components/QRScanner.tsx =====
+import React, { useState } from 'react';
+import QrScanner from 'react-qr-scanner';
+
+interface QRScannerProps {
+  onScan: (result: string) => void;
+}
+
+interface ScanResult {
+  text: string;
+}
+
+const QRScanner: React.FC<QRScannerProps> = ({ onScan }) => {
+  const [error, setError] = useState<string>('');
+
+  const handleScan = (data: ScanResult | null) => {
+    if (data) {
+      onScan(data.text);
+    }
+  };
+
+  const handleError = (err: Error) => {
+    setError('Error accessing camera. Please make sure you have granted camera permissions.');
+    console.error(err);
+  };
+
+  return (
+    <div className="w-full max-w-md mx-auto p-4">
+      <div className="relative aspect-square w-full bg-gray-100 rounded-lg overflow-hidden">
+        <QrScanner
+          delay={300}
+          onError={handleError}
+          onScan={handleScan}
+          style={{ width: '100%', height: '100%' }}
+        />
+      </div>
+      {error && (
+        <div className="mt-4 p-4 bg-red-100 text-red-700 rounded-lg">
+          {error}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default QRScanner; 
+
+===== FILE: frontend/src/pages/admin/modules/Menu.tsx =====
+import { API_BASE_URL } from "../../../config/api";
+import React, { useState, useEffect } from 'react';
+import { menuService, MenuItem, Category } from '../../../services/menuService';
+import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon, PhotoIcon } from '@heroicons/react/24/outline';
+
+const Menu = () => {
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    price: '',
+    category_id: '',
+    image_url: '',
+    is_available: true,
+    is_vegetarian: false,
+    is_spicy: false,
+    preparation_time: '',
+    calories: '',
+  });
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setLoading(true);
+    const [menuResult, categoriesResult] = await Promise.all([
+      menuService.getMenu(),
+      menuService.getCategories(),
+    ]);
+    
+    if (menuResult.success) setMenuItems(menuResult.data);
+    if (categoriesResult.success) setCategories(categoriesResult.data);
+    setLoading(false);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image size should be less than 5MB');
+      return;
+    }
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    setUploadingImage(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`${API_BASE_URL}/api/upload/image`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setFormData(prev => ({
+          ...prev,
+          image_url: `${API_BASE_URL}${data.image_url}`
+        }));
+        alert('Image uploaded successfully!');
+      } else {
+        throw new Error(data.detail || 'Upload failed');
+      }
+    } catch (error: any) {
+      alert(error.message || 'Failed to upload image');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const data = {
+      name: formData.name,
+      description: formData.description,
+      price: parseFloat(formData.price),
+      category_id: parseInt(formData.category_id),
+      image_url: formData.image_url,
+      is_available: formData.is_available,
+      is_vegetarian: formData.is_vegetarian,
+      is_spicy: formData.is_spicy,
+      preparation_time: formData.preparation_time ? parseInt(formData.preparation_time) : undefined,
+      calories: formData.calories ? parseInt(formData.calories) : undefined,
+    };
+
+    let result;
+    if (editingItem) {
+      result = await menuService.updateMenuItem(editingItem.id, data);
+    } else {
+      result = await menuService.createMenuItem(data);
+    }
+
+    if (result.success) {
+      alert(result.message);
+      setShowModal(false);
+      resetForm();
+      loadData();
+    } else {
+      alert(result.message);
+    }
+  };
+
+  const handleEdit = (item: MenuItem) => {
+    setEditingItem(item);
+    setFormData({
+      name: item.name,
+      description: item.description || '',
+      price: item.price.toString(),
+      category_id: item.category_id.toString(),
+      image_url: item.image_url || '',
+      is_available: item.is_available,
+      is_vegetarian: item.is_vegetarian,
+      is_spicy: item.is_spicy,
+      preparation_time: item.preparation_time?.toString() || '',
+      calories: item.calories?.toString() || '',
+    });
+    setShowModal(true);
+  };
+
+  const handleDelete = async (id: number) => {
+    const confirmed = window.confirm('⚠️ Are you sure you want to delete this item? This action cannot be undone.');
+    
+    if (!confirmed) {
+      console.log('Delete cancelled by user');
+      return;
+    }
+    
+    console.log('Starting delete for item ID:', id);
+    
+    try {
+      const result = await menuService.deleteMenuItem(id);
+      console.log('Delete API response:', result);
+      
+      if (result.success) {
+        alert('✅ ' + result.message);
+        await loadData(); // Reload the menu
+      } else {
+        alert('❌ ' + result.message);
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('❌ Failed to delete item. Check console for details.');
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      description: '',
+      price: '',
+      category_id: '',
+      image_url: '',
+      is_available: true,
+      is_vegetarian: false,
+      is_spicy: false,
+      preparation_time: '',
+      calories: '',
+    });
+    setEditingItem(null);
+  };
+
+  const openAddModal = () => {
+    resetForm();
+    setShowModal(true);
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6 flex justify-center items-center h-64">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-semibold">Menu Management</h1>
+        <button
+          onClick={openAddModal}
+          className="flex items-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600"
+        >
+          <PlusIcon className="w-5 h-5" />
+          Add Item
+        </button>
+      </div>
+
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Image</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {menuItems.map((item) => (
+              <tr key={item.id}>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {item.image_url ? (
+                    <img src={item.image_url} alt={item.name} className="w-16 h-16 object-cover rounded" />
+                  ) : (
+                    <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center text-gray-400">
+                      <PhotoIcon className="w-8 h-8" />
+                    </div>
+                  )}
+                </td>
+                <td className="px-6 py-4">
+                  <div className="text-sm font-medium text-gray-900">{item.name}</div>
+                  <div className="text-sm text-gray-500 truncate max-w-xs">{item.description}</div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {item.category.name}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  ${item.price.toFixed(2)}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`px-2 py-1 text-xs rounded-full ${
+                    item.is_available ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {item.is_available ? 'Available' : 'Unavailable'}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <button
+                    onClick={() => handleEdit(item)}
+                    className="text-blue-600 hover:text-blue-900 mr-4"
+                  >
+                    <PencilIcon className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(item.id)}
+                    className="text-red-600 hover:text-red-900"
+                  >
+                    <TrashIcon className="w-5 h-5" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">
+                  {editingItem ? 'Edit Menu Item' : 'Add Menu Item'}
+                </h2>
+                <button
+                  onClick={() => { setShowModal(false); resetForm(); }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <XMarkIcon className="w-6 h-6" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+
+                {/* Image Upload Section */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Image</label>
+                  <div className="flex items-center gap-4">
+                    {formData.image_url && (
+                      <img src={formData.image_url} alt="Preview" className="w-24 h-24 object-cover rounded" />
+                    )}
+                    <div className="flex-1">
+                      <label className="flex items-center justify-center px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-orange-500">
+                        <PhotoIcon className="w-6 h-6 text-gray-400 mr-2" />
+                        <span className="text-sm text-gray-600">
+                          {uploadingImage ? 'Uploading...' : 'Choose Image'}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          disabled={uploadingImage}
+                          className="hidden"
+                        />
+                      </label>
+                      <p className="text-xs text-gray-500 mt-1">Max 5MB (JPEG, PNG, WebP)</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Price *</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      value={formData.price}
+                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+                    <select
+                      required
+                      value={formData.category_id}
+                      onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                    >
+                      <option value="">Select category</option>
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Prep Time (min)</label>
+                    <input
+                      type="number"
+                      value={formData.preparation_time}
+                      onChange={(e) => setFormData({ ...formData, preparation_time: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Calories</label>
+                    <input
+                      type="number"
+                      value={formData.calories}
+                      onChange={(e) => setFormData({ ...formData, calories: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={formData.is_available}
+                      onChange={(e) => setFormData({ ...formData, is_available: e.target.checked })}
+                      className="mr-2"
+                    />
+                    <span className="text-sm text-gray-700">Available</span>
+                  </label>
+
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={formData.is_vegetarian}
+                      onChange={(e) => setFormData({ ...formData, is_vegetarian: e.target.checked })}
+                      className="mr-2"
+                    />
+                    <span className="text-sm text-gray-700">Vegetarian</span>
+                  </label>
+
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={formData.is_spicy}
+                      onChange={(e) => setFormData({ ...formData, is_spicy: e.target.checked })}
+                      className="mr-2"
+                    />
+                    <span className="text-sm text-gray-700">Spicy</span>
+                  </label>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="submit"
+                    disabled={uploadingImage}
+                    className="flex-1 bg-orange-500 text-white py-2 rounded-lg hover:bg-orange-600 disabled:bg-gray-400"
+                  >
+                    {editingItem ? 'Update' : 'Create'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowModal(false); resetForm(); }}
+                    className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Menu;
+
+
+===== FILE: frontend/src/pages/admin/modules/Feedback.tsx =====
+import React from 'react';
+
+const Feedback = () => {
+  return (
+    <div className="p-6">
+      <h1 className="text-2xl font-semibold mb-4">Feedback</h1>
+      <div className="bg-white rounded-lg shadow p-6">
+        {/* Feedback content will go here */}
+      </div>
+    </div>
+  );
+};
+
+export default Feedback; 
+
+===== FILE: frontend/src/context/AuthContext.tsx =====
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { authService, User } from '../services/authService';
+
+interface AuthContextType {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
+  register: (name: string, email: string, password: string, role?: string, phone?: string, address?: string) => Promise<{ success: boolean; message: string }>;
+  logout: () => void;
+  updateProfile: (data: { full_name?: string; phone?: string; address?: string }) => Promise<{ success: boolean; message: string }>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = authService.getToken();
+      if (token) {
+        try {
+          const currentUser = await authService.getCurrentUser();
+          setUser(currentUser);
+          setIsAuthenticated(true);
+        } catch (error) {
+          console.error('Auth check failed:', error);
+          authService.logout();
+        }
+      }
+      setIsLoading(false);
+    };
+    checkAuth();
+  }, []);
+
+  const login = async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
+    try {
+      setIsLoading(true);
+      const result = await authService.login({ email, password });
+      
+      if (result.success) {
+        setUser(result.data);
+        setIsAuthenticated(true);
+        return { success: true, message: result.message };
+      } else {
+        return { success: false, message: result.message };
+      }
+    } catch (error) {
+      console.error('❌ Login error:', error);
+      return { success: false, message: 'Login failed. Please try again.' };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const register = async (name: string, email: string, password: string, role?: string, phone?: string, address?: string): Promise<{ success: boolean; message: string }> => {
+    try {
+      setIsLoading(true);
+      
+      const result = await authService.register({
+        email,
+        username: name.toLowerCase().replace(/\s+/g, '_'),
+        password,
+        full_name: name,
+        phone,
+        address,
+      });
+      
+      if (result.success) {
+        const loginResult = await authService.login({ email, password });
+        if (loginResult.success) {
+          setUser(loginResult.data);
+          setIsAuthenticated(true);
+          return { success: true, message: 'Registration successful!' };
+        }
+        return { success: true, message: 'Registration successful! Please login.' };
+      } else {
+        return { success: false, message: result.message };
+      }
+    } catch (error) {
+      console.error('❌ Registration error:', error);
+      return { success: false, message: 'Registration failed. Please try again.' };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateProfile = async (data: { full_name?: string; phone?: string; address?: string }): Promise<{ success: boolean; message: string }> => {
+    try {
+      const result = await authService.updateProfile(data);
+      if (result.success && result.data) {
+        setUser(result.data);
+        return { success: true, message: result.message };
+      }
+      return { success: false, message: result.message };
+    } catch (error) {
+      return { success: false, message: 'Failed to update profile' };
+    }
+  };
+
+  const logout = () => {
+    authService.logout();
+    setUser(null);
+    setIsAuthenticated(false);
+  };
+
+  return (
+    <AuthContext.Provider value={{
+      user,
+      isAuthenticated,
+      isLoading,
+      login,
+      register,
+      logout,
+      updateProfile
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+
+===== FILE: frontend/src/services/api.ts =====
+// Simplified API service using mock data
+import { 
+  mockUsers, 
+  mockMenuItems, 
+  mockOrders, 
+  mockReviews, 
+  mockReservations,
+  getMenuByCategory,
+  getTopRatedItems,
+  getOrdersByUser,
+  getReviewsByMenuItem,
+  getReservationsByUser,
+  type User,
+  type MenuItem,
+  type Order,
+  type Review,
+  type Reservation
+} from './mockData';
+
+// Re-export types for other components
+export type { User, MenuItem, Order, Review, Reservation };
+
+// Simulate API delay
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+}
+
+// Auth API calls
+export const authAPI = {
+  register: async (data: { name: string; email: string; password: string; role?: string }): Promise<ApiResponse<{ token: string; user: User }>> => {
+    await delay(500);
+    
+    // Check if user already exists
+    const existingUser = mockUsers.find(user => user.email === data.email);
+    if (existingUser) {
+      return {
+        success: false,
+        message: 'User already exists',
+        data: null as any
+      };
+    }
+
+    // Create new user
+    const newUser: User = {
+      id: (mockUsers.length + 1).toString(),
+      name: data.name,
+      email: data.email,
+      role: (data.role as any) || 'customer'
+    };
+
+    mockUsers.push(newUser);
+
+    return {
+      success: true,
+      message: 'User registered successfully',
+      data: {
+        token: `mock-token-${newUser.id}`,
+        user: newUser
+      }
+    };
+  },
+  
+  login: async (data: { email: string; password: string }): Promise<ApiResponse<{ token: string; user: User }>> => {
+    await delay(500);
+    
+    const user = mockUsers.find(u => u.email === data.email);
+    if (!user) {
+      return {
+        success: false,
+        message: 'Invalid credentials',
+        data: null as any
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Login successful',
+      data: {
+        token: `mock-token-${user.id}`,
+        user
+      }
+    };
+  },
+  
+  getCurrentUser: async (): Promise<ApiResponse<User>> => {
+    await delay(300);
+    
+    const token = localStorage.getItem('token');
+    if (!token) {
+      return {
+        success: false,
+        message: 'No token found',
+        data: null as any
+      };
+    }
+
+    const userId = token.replace('mock-token-', '');
+    const user = mockUsers.find(u => u.id === userId);
+    
+    if (!user) {
+      return {
+        success: false,
+        message: 'User not found',
+        data: null as any
+      };
+    }
+
+    return {
+      success: true,
+      message: 'User retrieved successfully',
+      data: user
+    };
+  },
+  
+  logout: async (): Promise<ApiResponse<void>> => {
+    await delay(200);
+    return {
+      success: true,
+      message: 'Logged out successfully',
+      data: undefined as any
+    };
+  },
+};
+
+// User API calls
+export const userAPI = {
+  updateProfile: async (data: { name?: string; phone?: string; profilePicture?: string }): Promise<ApiResponse<User>> => {
+    await delay(500);
+    
+    const token = localStorage.getItem('token');
+    if (!token) {
+      return {
+        success: false,
+        message: 'No token found',
+        data: null as any
+      };
+    }
+
+    const userId = token.replace('mock-token-', '');
+    const userIndex = mockUsers.findIndex(u => u.id === userId);
+    
+    if (userIndex === -1) {
+      return {
+        success: false,
+        message: 'User not found',
+        data: null as any
+      };
+    }
+
+    // Update user data
+    mockUsers[userIndex] = {
+      ...mockUsers[userIndex],
+      ...data
+    };
+
+    return {
+      success: true,
+      message: 'Profile updated successfully',
+      data: mockUsers[userIndex]
+    };
+  },
+  
+  updatePassword: async (data: { currentPassword: string; newPassword: string }): Promise<ApiResponse<void>> => {
+    await delay(500);
+    return {
+      success: true,
+      message: 'Password updated successfully',
+      data: undefined as any
+    };
+  },
+};
+
+// Menu API calls
+export const menuAPI = {
+  getMenu: async (): Promise<ApiResponse<MenuItem[]>> => {
+    await delay(300);
+    return {
+      success: true,
+      message: 'Menu retrieved successfully',
+      data: mockMenuItems
+    };
+  },
+  
+  getMenuItem: async (id: string): Promise<ApiResponse<MenuItem>> => {
+    await delay(200);
+    const item = mockMenuItems.find(item => item.id === id);
+    
+    if (!item) {
+      return {
+        success: false,
+        message: 'Menu item not found',
+        data: null as any
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Menu item retrieved successfully',
+      data: item
+    };
+  },
+
+  getMenuByCategory: async (category: string): Promise<ApiResponse<MenuItem[]>> => {
+    await delay(200);
+    const items = getMenuByCategory(category);
+    return {
+      success: true,
+      message: 'Menu items retrieved successfully',
+      data: items
+    };
+  },
+
+  getTopRatedItems: async (limit: number = 5): Promise<ApiResponse<MenuItem[]>> => {
+    await delay(200);
+    const items = getTopRatedItems(limit);
+    return {
+      success: true,
+      message: 'Top rated items retrieved successfully',
+      data: items
+    };
+  },
+};
+
+// Order API calls
+export const orderAPI = {
+  createOrder: async (data: any): Promise<ApiResponse<Order>> => {
+    await delay(500);
+    
+    const newOrder: Order = {
+      id: (mockOrders.length + 1).toString(),
+      userId: data.userId,
+      items: data.items,
+      total: data.items.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0),
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      tableNumber: data.tableNumber,
+      notes: data.notes
+    };
+
+    mockOrders.push(newOrder);
+
+    return {
+      success: true,
+      message: 'Order created successfully',
+      data: newOrder
+    };
+  },
+  
+  getOrders: async (): Promise<ApiResponse<Order[]>> => {
+    await delay(300);
+    return {
+      success: true,
+      message: 'Orders retrieved successfully',
+      data: mockOrders
+    };
+  },
+  
+  getOrder: async (id: string): Promise<ApiResponse<Order>> => {
+    await delay(200);
+    const order = mockOrders.find(o => o.id === id);
+    
+    if (!order) {
+      return {
+        success: false,
+        message: 'Order not found',
+        data: null as any
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Order retrieved successfully',
+      data: order
+    };
+  },
+  
+  updateOrderStatus: async (id: string, status: string): Promise<ApiResponse<Order>> => {
+    await delay(300);
+    
+    const orderIndex = mockOrders.findIndex(o => o.id === id);
+    if (orderIndex === -1) {
+      return {
+        success: false,
+        message: 'Order not found',
+        data: null as any
+      };
+    }
+
+    mockOrders[orderIndex].status = status as any;
+    
+    return {
+      success: true,
+      message: 'Order status updated successfully',
+      data: mockOrders[orderIndex]
+    };
+  },
+
+  getOrdersByUser: async (userId: string): Promise<ApiResponse<Order[]>> => {
+    await delay(200);
+    const orders = getOrdersByUser(userId);
+    return {
+      success: true,
+      message: 'User orders retrieved successfully',
+      data: orders
+    };
+  },
+};
+
+// Booking API calls
+export const bookingAPI = {
+  createBooking: async (data: any): Promise<ApiResponse<Reservation>> => {
+    await delay(500);
+    
+    const newReservation: Reservation = {
+      id: (mockReservations.length + 1).toString(),
+      userId: data.userId,
+      userName: data.userName,
+      date: data.date,
+      time: data.time,
+      partySize: data.partySize,
+      status: 'pending',
+      specialRequests: data.specialRequests,
+      phone: data.phone
+    };
+
+    mockReservations.push(newReservation);
+
+    return {
+      success: true,
+      message: 'Reservation created successfully',
+      data: newReservation
+    };
+  },
+  
+  getBookings: async (): Promise<ApiResponse<Reservation[]>> => {
+    await delay(300);
+    return {
+      success: true,
+      message: 'Reservations retrieved successfully',
+      data: mockReservations
+    };
+  },
+  
+  getBooking: async (id: string): Promise<ApiResponse<Reservation>> => {
+    await delay(200);
+    const reservation = mockReservations.find(r => r.id === id);
+    
+    if (!reservation) {
+      return {
+        success: false,
+        message: 'Reservation not found',
+        data: null as any
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Reservation retrieved successfully',
+      data: reservation
+    };
+  },
+  
+  updateBooking: async (id: string, data: any): Promise<ApiResponse<Reservation>> => {
+    await delay(300);
+    
+    const reservationIndex = mockReservations.findIndex(r => r.id === id);
+    if (reservationIndex === -1) {
+      return {
+        success: false,
+        message: 'Reservation not found',
+        data: null as any
+      };
+    }
+
+    mockReservations[reservationIndex] = {
+      ...mockReservations[reservationIndex],
+      ...data
+    };
+    
+    return {
+      success: true,
+      message: 'Reservation updated successfully',
+      data: mockReservations[reservationIndex]
+    };
+  },
+
+  getReservationsByUser: async (userId: string): Promise<ApiResponse<Reservation[]>> => {
+    await delay(200);
+    const reservations = getReservationsByUser(userId);
+    return {
+      success: true,
+      message: 'User reservations retrieved successfully',
+      data: reservations
+    };
+  },
+};
+
+// Review API calls
+export const reviewAPI = {
+  createReview: async (data: any): Promise<ApiResponse<Review>> => {
+    await delay(500);
+    
+    const newReview: Review = {
+      id: (mockReviews.length + 1).toString(),
+      userId: data.userId,
+      userName: data.userName,
+      rating: data.rating,
+      comment: data.comment,
+      createdAt: new Date().toISOString(),
+      menuItemId: data.menuItemId
+    };
+
+    mockReviews.push(newReview);
+
+    return {
+      success: true,
+      message: 'Review created successfully',
+      data: newReview
+    };
+  },
+  
+  getReviews: async (): Promise<ApiResponse<Review[]>> => {
+    await delay(300);
+    return {
+      success: true,
+      message: 'Reviews retrieved successfully',
+      data: mockReviews
+    };
+  },
+
+  getReviewsByMenuItem: async (menuItemId: string): Promise<ApiResponse<Review[]>> => {
+    await delay(200);
+    const reviews = getReviewsByMenuItem(menuItemId);
+    return {
+      success: true,
+      message: 'Menu item reviews retrieved successfully',
+      data: reviews
+    };
+  },
+};
+
+// Loyalty API calls
+export const loyaltyAPI = {
+  getPoints: async (): Promise<ApiResponse<{ points: number; level: string }>> => {
+    await delay(200);
+    return {
+      success: true,
+      message: 'Loyalty points retrieved successfully',
+      data: { points: 150, level: 'Gold' }
+    };
+  },
+  
+  getTransactions: async (): Promise<ApiResponse<any[]>> => {
+    await delay(300);
+    return {
+      success: true,
+      message: 'Loyalty transactions retrieved successfully',
+      data: []
+    };
+  },
+};
+
+// Notification API calls
+export const notificationAPI = {
+  getNotifications: async (): Promise<ApiResponse<any[]>> => {
+    await delay(200);
+    return {
+      success: true,
+      message: 'Notifications retrieved successfully',
+      data: []
+    };
+  },
+  
+  markAsRead: async (id: string): Promise<ApiResponse<void>> => {
+    await delay(200);
+    return {
+      success: true,
+      message: 'Notification marked as read',
+      data: undefined as any
+    };
+  },
+}; 
+
+===== FILE: frontend/src/config/api.ts =====
+// Get the API base URL dynamically
+const getApiBaseUrl = (): string => {
+  // If there's an environment variable, use it
+  if (process.env.REACT_APP_API_BASE_URL) {
+    return process.env.REACT_APP_API_BASE_URL;
+  }
+  
+  // Otherwise, use the same host as the frontend but port 8000
+  const hostname = window.location.hostname;
+  return `http://${hostname}:8000`;
+};
+
+export const API_BASE_URL = getApiBaseUrl();
+export const WS_BASE_URL = API_BASE_URL.replace('http://', 'ws://').replace('https://', 'wss://');
+
+console.log('🔗 API Base URL:', API_BASE_URL);
+console.log('🔗 WebSocket Base URL:', WS_BASE_URL);
+
+
+===== FILE: frontend/src/App.tsx =====
+import React, { Suspense, lazy } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
+import Navbar from './components/Navbar';
+import Footer from './components/Footer';
+import ErrorBoundary from './components/ErrorBoundary';
+import ScrollToTop from './components/ScrollToTop';
+
+// ============ LAZY-LOADED PAGES ============
+// Public pages
+const Landing = lazy(() => import('./pages/Landing'));
+const Auth = lazy(() => import('./components/Auth'));
+const About = lazy(() => import('./pages/About'));
+const Register = lazy(() => import('./pages/Register'));
+const ContactUs = lazy(() => import('./pages/ContactUs'));
+const Reservation = lazy(() => import('./pages/Reservation'));
+const Reviews = lazy(() => import('./pages/Reviews'));
+const Menu = lazy(() => import('./pages/Menu'));
+const ScanOrder = lazy(() => import('./pages/ScanOrder'));
+const ScanAndPay = lazy(() => import('./pages/ScanAndPay'));
+const GuestOrder = lazy(() => import('./pages/GuestOrder'));
+const GuestCheckout = lazy(() => import('./pages/GuestCheckout'));
+const OrderStatus = lazy(() => import('./pages/OrderStatus'));
+const MyOrders = lazy(() => import('./pages/MyOrders'));
+const Checkout = lazy(() => import('./pages/Checkout'));
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const Profile = lazy(() => import('./pages/Profile'));
+const EditProfile = lazy(() => import('./pages/EditProfile'));
+const NotFound = lazy(() => import('./pages/NotFound'));
+
+// Admin pages (separate chunk)
+const AdminMenu = lazy(() => import('./pages/admin/modules/Menu'));
+const OrdersManagement = lazy(() => import('./pages/OrdersManagement'));
+const AIAnalytics = lazy(() => import('./pages/admin/AIAnalytics'));
+const AdminTables = lazy(() => import('./pages/admin/modules/Tables'));
+const AdminReservations = lazy(() => import('./pages/admin/modules/Reservations'));
+const AdminStaff = lazy(() => import('./pages/admin/modules/Staff'));
+const AdminPayments = lazy(() => import('./pages/admin/modules/Payments'));
+const AdminFeedback = lazy(() => import('./pages/admin/modules/Feedback'));
+const AdminReports = lazy(() => import('./pages/admin/modules/Reports'));
+const AdminSettings = lazy(() => import('./pages/admin/modules/Settings'));
+const CompleteAdminDashboard = lazy(() => import('./pages/CompleteAdminDashboard'));
+const PrivateRoute = lazy(() => import('./components/PrivateRoute'));
+
+// Loading Fallback
+const PageLoader: React.FC = () => (
+  <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+  <div className="text-center">
+  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFD700] mx-auto mb-4"></div>
+  <p className="text-gray-600">Loading...</p>
+  </div>
+  </div>
+);
+
+const AppRoutes: React.FC = () => {
+  const { isLoading } = useAuth();
+
+  if (isLoading) {
+    return <PageLoader />;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+    <Navbar />
+    <div className="pt-16">
+    <Suspense fallback={<PageLoader />}>
+    <Routes>
+    {/* Public Routes */}
+    <Route path="/" element={<Landing />} />
+    <Route path="/auth" element={<Auth />} />
+    <Route path="/about" element={<About />} />
+    <Route path="/contact" element={<ContactUs />} />
+    <Route path="/reservation" element={<Reservation />} />
+    <Route path="/reviews" element={<Reviews />} />
+    <Route path="/register" element={<Register />} />
+    <Route path="/scan-order" element={<ScanOrder />} />
+    <Route path="/scan-pay" element={<ScanAndPay />} />
+    <Route path="/menu" element={<Menu />} />
+    <Route path="/my-orders" element={<MyOrders />} />
+    <Route path="/guest-order" element={<GuestOrder />} />
+    <Route path="/guest-checkout" element={<GuestCheckout />} />
+    <Route path="/order-status/:orderNumber" element={<OrderStatus />} />
+    <Route path="/checkout" element={<Checkout />} />
+    <Route path="/dashboard" element={<Dashboard />} />
+    <Route path="/profile" element={<Profile />} />
+    <Route path="/profile/edit" element={<EditProfile />} />
+
+    {/* Admin Routes */}
+    <Route
+    path="/admin/*"
+    element={
+      <PrivateRoute role="admin">
+      <Routes>
+      <Route path="menu" element={<AdminMenu />} />
+      <Route path="orders" element={<OrdersManagement />} />
+      <Route path="tables" element={<AdminTables />} />
+      <Route path="ai-analytics" element={<AIAnalytics />} />
+      <Route path="reservations" element={<AdminReservations />} />
+      <Route path="staff" element={<AdminStaff />} />
+      <Route path="payments" element={<AdminPayments />} />
+      <Route path="feedback" element={<AdminFeedback />} />
+      <Route path="reports" element={<AdminReports />} />
+      <Route path="settings" element={<AdminSettings />} />
+      <Route path="dashboard" element={<CompleteAdminDashboard />} />
+      <Route path="" element={<Navigate to="/admin/dashboard" replace />} />
+      </Routes>
+      </PrivateRoute>
+    }
+    />
+
+    {/* 404 - Catch all unknown routes */}
+    <Route path="*" element={<NotFound />} />
+    </Routes>
+    </Suspense>
+    <Footer />
+    </div>
+    </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <ErrorBoundary>
+    <AuthProvider>
+    <Router>
+    <ScrollToTop />
+    <AppRoutes />
+    </Router>
+    </AuthProvider>
+    </ErrorBoundary>
+  );
+};
+
+export default App;
+
+
+===== FILE: backend/app/main.py =====
+FILE NOT FOUND
+
+
+===== FILE: backend/app/models.py =====
+# app/models.py
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text, Enum, Date
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+from datetime import datetime
+import enum
+
+from app.database import Base
+
+
+class UserRole(str, enum.Enum):
+    ADMIN = "admin"
+    STAFF = "staff"
+    CUSTOMER = "customer"
+
+
+class OrderStatus(str, enum.Enum):
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    PREPARING = "preparing"
+    READY = "ready"
+    DELIVERED = "delivered"
+    CANCELLED = "cancelled"
+
+
+class User(Base):
+    __tablename__ = "users"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    username = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    full_name = Column(String)
+    phone = Column(String)
+    role = Column(Enum(UserRole), default=UserRole.CUSTOMER)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    orders = relationship("Order", back_populates="customer")
+    reservations = relationship("Reservation", back_populates="user")
+
+
+class Category(Base):
+    __tablename__ = "categories"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, nullable=False)
+    description = Column(Text)
+    image_url = Column(String)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    menu_items = relationship("MenuItem", back_populates="category")
+
+
+class MenuItem(Base):
+    __tablename__ = "menu_items"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    description = Column(Text)
+    price = Column(Float, nullable=False)
+    category_id = Column(Integer, ForeignKey("categories.id"))
+    image_url = Column(String)
+    is_available = Column(Boolean, default=True)
+    is_vegetarian = Column(Boolean, default=False)
+    is_spicy = Column(Boolean, default=False)
+    preparation_time = Column(Integer)
+    calories = Column(Integer)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    category = relationship("Category", back_populates="menu_items")
+    order_items = relationship("OrderItem", back_populates="menu_item")
+
+
+class Order(Base):
+    __tablename__ = "orders"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    order_number = Column(String, unique=True, nullable=False)
+    customer_id = Column(Integer, ForeignKey("users.id"))
+    table_number = Column(String)
+    guest_name = Column(String)  # Guest name for non-authenticated orders
+    order_type = Column(String, default="dine_in")
+    order_type = Column(String, default="dine_in")  # Order type: dine_in, takeout, delivery
+    status = Column(Enum(OrderStatus), default=OrderStatus.PENDING)
+    total_amount = Column(Float, nullable=False)
+    notes = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    customer = relationship("User", back_populates="orders")
+    order_items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+
+
+class OrderItem(Base):
+    __tablename__ = "order_items"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"))
+    menu_item_id = Column(Integer, ForeignKey("menu_items.id"))
+    quantity = Column(Integer, nullable=False)
+    price = Column(Float, nullable=False)
+    special_instructions = Column(Text)
+    
+    order = relationship("Order", back_populates="order_items")
+    menu_item = relationship("MenuItem", back_populates="order_items")
+
+
+class Restaurant(Base):
+    __tablename__ = "restaurant_info"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    description = Column(Text)
+    address = Column(String)
+    phone = Column(String)
+    email = Column(String)
+    opening_time = Column(String)
+    closing_time = Column(String)
+    logo_url = Column(String)
+    is_open = Column(Boolean, default=True)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class Reservation(Base):
+    __tablename__ = "reservations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    name = Column(String, nullable=False)
+    email = Column(String, nullable=False)
+    phone = Column(String, nullable=False)
+    date = Column(Date, nullable=False)
+    time = Column(String, nullable=False)
+    guests = Column(Integer, nullable=False)
+    special_requests = Column(Text, nullable=True)
+    status = Column(String, default="pending")  # pending, confirmed, cancelled
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    user = relationship("User", back_populates="reservations")
+
+
+class Table(Base):
+    __tablename__ = "tables"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    number = Column(String, unique=True, nullable=False)
+    capacity = Column(Integer, nullable=False)
+    status = Column(String, default="available")  # available, occupied, reserved
+    qr_code = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, onupdate=datetime.utcnow)
+
+
+===== FILE: backend/app/schemas.py =====
+from datetime import datetime, date
+# app/schemas.py
+from pydantic import BaseModel, EmailStr, Field
+from typing import Optional, List
+from app.models import UserRole, OrderStatus
+
+# ============ AUTH SCHEMAS ============
+class UserBase(BaseModel):
+    email: EmailStr
+    username: str
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+
+class UserCreate(UserBase):
+    password: str = Field(..., min_length=6)
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class UserResponse(UserBase):
+    id: int
+    role: UserRole
+    is_active: bool
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+class TokenData(BaseModel):
+    email: Optional[str] = None
+
+# User Profile Update Schema
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+# ============ MENU SCHEMAS ============
+class CategoryBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+
+class CategoryCreate(CategoryBase):
+    pass
+
+class CategoryResponse(CategoryBase):
+    id: int
+    is_active: bool
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class MenuItemBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    price: float = Field(..., gt=0)
+    category_id: int
+    image_url: Optional[str] = None
+    is_vegetarian: bool = False
+    is_spicy: bool = False
+    preparation_time: Optional[int] = None
+    calories: Optional[int] = None
+
+class MenuItemCreate(MenuItemBase):
+    pass
+
+class MenuItemUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[float] = Field(None, gt=0)
+    category_id: Optional[int] = None
+    image_url: Optional[str] = None
+    is_available: Optional[bool] = None
+    is_vegetarian: Optional[bool] = None
+    is_spicy: Optional[bool] = None
+
+class MenuItemResponse(MenuItemBase):
+    id: int
+    is_available: bool
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    category: CategoryResponse
+    
+    class Config:
+        from_attributes = True
+
+# ============ ORDER SCHEMAS ============
+class OrderItemCreate(BaseModel):
+    menu_item_id: int
+    quantity: int = Field(..., gt=0)
+    special_instructions: Optional[str] = None
+
+class OrderItemResponse(BaseModel):
+    id: int
+    quantity: int
+    price: float
+    special_instructions: Optional[str] = None
+    menu_item: Optional[MenuItemResponse] = None
+    
+    class Config:
+        from_attributes = True
+
+class OrderCreate(BaseModel):
+    table_number: Optional[str] = None
+    notes: Optional[str] = None
+    items: List[OrderItemCreate]
+
+class OrderStatusUpdate(BaseModel):
+    status: OrderStatus
+
+class OrderResponse(BaseModel):
+    id: int
+    order_number: str
+    customer_id: Optional[int] = None  # Optional for guest orders
+    table_number: Optional[str] = None
+    guest_name: Optional[str] = None  # Guest name for non-authenticated orders
+    order_type: Optional[str] = None  # Order type: dine_in, takeout, delivery
+    status: OrderStatus
+    total_amount: float
+    notes: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    order_items: List[OrderItemResponse]
+    
+    class Config:
+        from_attributes = True
+
+# ============ RESTAURANT SCHEMAS ============
+class RestaurantUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[EmailStr] = None
+    opening_time: Optional[str] = None
+    closing_time: Optional[str] = None
+    logo_url: Optional[str] = None
+    is_open: Optional[bool] = None
+
+class RestaurantResponse(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    opening_time: Optional[str] = None
+    closing_time: Optional[str] = None
+    logo_url: Optional[str] = None
+    is_open: bool
+    
+    class Config:
+        from_attributes = True
+
+# ============ RESERVATION SCHEMAS ============
+class ReservationCreate(BaseModel):
+    name: str
+    email: str
+    phone: str
+    date: str  # Format: YYYY-MM-DD
+    time: str
+    guests: int
+    special_requests: Optional[str] = None
+
+class ReservationResponse(BaseModel):
+    id: int
+    user_id: Optional[int] = None
+    name: str
+    email: str
+    phone: str
+    date: str  # Using str to avoid Pydantic issues
+    time: str
+    guests: int
+    special_requests: Optional[str] = None
+    status: str
+    created_at: str  # Using str to avoid Pydantic issues
+
+    class Config:
+        from_attributes = True
+
+
+# ============ TABLE SCHEMAS ============
+class TableCreate(BaseModel):
+    number: str
+    capacity: int
+
+class TableUpdate(BaseModel):
+    number: Optional[str] = None
+    capacity: Optional[int] = None
+    status: Optional[str] = None
+
+class TableResponse(BaseModel):
+    id: int
+    number: str
+    capacity: int
+    status: str
+    qr_code: Optional[str] = None
+    created_at: str
+    updated_at: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+===== FILE: backend/app/routers/menu.py =====
+# app/routers/menu.py
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy.orm import Session
+from typing import List, Optional
+
+from app.database import get_db
+from app.models import MenuItem, Category, User
+from app.schemas import (
+    MenuItemCreate,
+    MenuItemUpdate,
+    MenuItemResponse,
+    CategoryCreate,
+    CategoryResponse
+)
+from app.utils.auth import get_current_active_user, get_admin_user
+
+router = APIRouter()
+
+
+# ============ MENU ITEMS ============
+@router.get("", response_model=List[MenuItemResponse])
+async def get_menu_items(
+    category_id: Optional[int] = None,
+    is_available: Optional[bool] = None,
+    is_vegetarian: Optional[bool] = None,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
+    db: Session = Depends(get_db)
+):
+    """Get all menu items with optional filters."""
+    query = db.query(MenuItem)
+    
+    if category_id:
+        query = query.filter(MenuItem.category_id == category_id)
+    if is_available is not None:
+        query = query.filter(MenuItem.is_available == is_available)
+    if is_vegetarian is not None:
+        query = query.filter(MenuItem.is_vegetarian == is_vegetarian)
+    
+    menu_items = query.offset(skip).limit(limit).all()
+    return menu_items
+
+
+@router.get("/{item_id}", response_model=MenuItemResponse)
+async def get_menu_item(item_id: int, db: Session = Depends(get_db)):
+    """Get a specific menu item by ID."""
+    item = db.query(MenuItem).filter(MenuItem.id == item_id).first()
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Menu item not found"
+        )
+    return item
+
+
+@router.post("", response_model=MenuItemResponse, status_code=status.HTTP_201_CREATED)
+async def create_menu_item(
+    item_data: MenuItemCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_admin_user)
+):
+    """Create a new menu item (Admin only)."""
+    # Verify category exists
+    category = db.query(Category).filter(Category.id == item_data.category_id).first()
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Category not found"
+        )
+    
+    new_item = MenuItem(**item_data.model_dump())
+    db.add(new_item)
+    db.commit()
+    db.refresh(new_item)
+    return new_item
+
+
+@router.put("/{item_id}", response_model=MenuItemResponse)
+async def update_menu_item(
+    item_id: int,
+    item_data: MenuItemUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_admin_user)
+):
+    """Update a menu item (Admin only)."""
+    item = db.query(MenuItem).filter(MenuItem.id == item_id).first()
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Menu item not found"
+        )
+    
+    # Update only provided fields
+    update_data = item_data.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(item, key, value)
+    
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_menu_item(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_admin_user)
+):
+    """Delete a menu item (Admin only)."""
+    item = db.query(MenuItem).filter(MenuItem.id == item_id).first()
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Menu item not found"
+        )
+    
+    db.delete(item)
+    db.commit()
+    return None
+
+
+# ============ CATEGORIES ============
+@router.get("/categories/all", response_model=List[CategoryResponse])
+async def get_categories(db: Session = Depends(get_db)):
+    """Get all menu categories."""
+    categories = db.query(Category).filter(Category.is_active == True).all()
+    return categories
+
+
+@router.post("/categories", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)
+async def create_category(
+    category_data: CategoryCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_admin_user)
+):
+    """Create a new category (Admin only)."""
+    # Check if category already exists
+    existing = db.query(Category).filter(Category.name == category_data.name).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Category already exists"
+        )
+    
+    new_category = Category(**category_data.model_dump())
+    db.add(new_category)
+    db.commit()
+    db.refresh(new_category)
+    return new_category
+
+
+===== FILE: backend/app/routers/auth.py =====
+# app/routers/auth.py
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from datetime import timedelta
+
+from app.database import get_db
+from app.models import User
+from app.schemas import UserCreate, UserLogin, UserResponse, Token, UserUpdate
+from app.utils.auth import (
+    get_password_hash,
+    verify_password,
+    create_access_token,
+    get_current_active_user
+)
+from app.config import settings
+
+router = APIRouter()
+
+
+@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def register(user_data: UserCreate, db: Session = Depends(get_db)):
+    """Register a new user."""
+    # Check if user already exists
+    existing_user = db.query(User).filter(
+        (User.email == user_data.email) | (User.username == user_data.username)
+    ).first()
+    
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email or username already registered"
+        )
+    
+    # Create new user
+    hashed_password = get_password_hash(user_data.password)
+    new_user = User(
+        email=user_data.email,
+        username=user_data.username,
+        full_name=user_data.full_name,
+        phone=user_data.phone,
+        hashed_password=hashed_password
+    )
+    
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    
+    return new_user
+
+
+@router.post("/login", response_model=Token)
+async def login(credentials: UserLogin, db: Session = Depends(get_db)):
+    """Authenticate user and return JWT token."""
+    # Find user by email
+    user = db.query(User).filter(User.email == credentials.email).first()
+    
+    if not user or not verify_password(credentials.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Inactive user account"
+        )
+    
+    # Create access token
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email},
+        expires_delta=access_token_expires
+    )
+    
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.get("/me", response_model=UserResponse)
+async def get_current_user_info(current_user: User = Depends(get_current_active_user)):
+    """Get current authenticated user information."""
+    return current_user
+
+
+@router.post("/logout")
+async def logout():
+    """Logout endpoint (token invalidation handled client-side)."""
+    return {"message": "Successfully logged out"}
+
+@router.put("/profile", response_model=dict)
+async def update_profile(
+    user_update: UserUpdate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update user profile (full_name and phone)
+    """
+    try:
+        # Update user fields if provided
+        if user_update.full_name is not None:
+            current_user.full_name = user_update.full_name
+        if user_update.phone is not None:
+            current_user.phone = user_update.phone
+        
+        db.commit()
+        db.refresh(current_user)
+        
+        # Return updated user data
+        return {
+            "id": current_user.id,
+            "email": current_user.email,
+            "username": current_user.username,
+            "full_name": current_user.full_name,
+            "phone": current_user.phone,
+            "role": current_user.role,
+            "is_active": current_user.is_active,
+            "created_at": current_user.created_at.isoformat() if current_user.created_at else None
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to update profile: {str(e)}")
+
+
